@@ -1,35 +1,130 @@
-# Algorand Hackathon Challenge - Create an xALGO APR Oracle
+# xalgo-apr-oracle
 
-## Challenge Overview
-Your task is to build an oracle for the APR of the Folks Finance Liquid Staking token xALGO.
-**SUBMISSIONS SHOULD BE A DONE WITH A PR ON THIS REPO**
+An Algorand-based APR oracle system for tracking xALGO returns using Folks Finance data.
 
-## Background
-Folks Finance's xALGO is the primary liquid staking token on the Algorand blockchain. It represents staked ALGO and allows users to earn Algorand Consensus Rewards while remaining liquid on DeFi. By staking ALGO through Folks Finance, users receive xALGO tokens, which accrue value over time as they earn rewards. The value of xALGO increases relative to ALGO as it collects rewards, and it can be redeemed for ALGO at any time.
+## System Components
 
-## Requirements
+### Smart Contract (Oracle)
 
-### Working Environment
-- Participants must use **AlgoKit** to build the oracle smart contract.
-- It is recommended to familiarise yourself with the Algorand SDKs necessary to complete the challenge.
+The oracle contract is implemented in [smart_contracts/xalgo_apr_oracle/oracle.py](projects/xalgo-apr-oracle/smart_contracts/xalgo_apr_oracle/oracle.py) using the Beaker framework:
 
-### Development Languages
-- The smart contract language used should be **Python**, specifically the **Puya library**. 
-- For the off-chain code, you are free to work with your preferred language. However, we do recommend you stick to either Python or JavaScript/Typescript because there are well-supported Algorand SDKs on both.
+- Stores APR in basis points (1% = 100 basis points) for precision
+- Implements authorization checks for updates
+- Provides read-only access for other contracts
+- Tracks last update timestamp
+- Uses global state for persistent storage
 
-### Functional Requirements
-1. You should calculate the xALGO APR off-chain using periodic readings from https://folks-finance.github.io/folks-finance-js-sdk/functions/getConsensusState.html.
-2. Other smart contracts should be able to read the xALGO APR on chain.
-3. There should be at least some basic level of permissions to prevent a malicious actor from writing an incorrect APR to the oracle.
-4. (Optional) Bonus points for extending the functionality and/or security of the oracle. 
+### Off-Chain Calculator
 
-### Time Allotment
-- Participants have **4 days** to complete the challenge.
+The APR calculator ([smart_contracts/xalgo_apr_oracle/off_chain/config/apr_calculator.py](projects/xalgo-apr-oracle/smart_contracts/xalgo_apr_oracle/off_chain/config/apr_calculator.py)) handles rate computation:
 
-## Evaluation Criteria
+- Integrates with Folks Finance SDK for xALGO data
+- Calculates APR by measuring value changes over time
+- Converts rates to basis points for on-chain storage
+- Implements comprehensive error handling
 
-1. **Functionality**: The xALGO APR Oracle must meet the outlined requirements.
-2. **Security**: Solutions that promote oracle security are preferred.
-3. **Decentralisation**: Solutions that reduce oracle centralisation risks are preferred.
-4. **Code Quality**: Code readability, adherence to best practices and documentation are assessed.
+### Monitor Service
+
+Continuous monitoring service ([smart_contracts/xalgo_apr_oracle/off_chain/config/monitor.py](projects/xalgo-apr-oracle/smart_contracts/xalgo_apr_oracle/off_chain/config/monitor.py)):
+
+- Runs as a background service to update APR values
+- Manages connections to Algorand network
+- Implements exponential backoff for error recovery
+- Provides logging and monitoring capabilities
+
+## Security Features
+
+- Authorization checks for all update operations
+- Rate limiting through configured update intervals
+- Comprehensive error handling throughout the system
+- Atomic updates to maintain state consistency
+- Maximum APR validation (capped at 100%)
+
+## Setup
+
+### Pre-requisites
+
+- [Python 3.12](https://www.pytcdhon.org/downloads/) or later
+- [Docker](https://www.docker.com/) (only required for LocalNet)
+
+> For interactive tour over the codebase, download [vsls-contrib.codetour](https://marketplace.visualstudio.com/items?itemName=vsls-contrib.codetour) extension for VS Code, then open the [`.codetour.json`](./.tours/getting-started-with-your-algokit-project.tour) file in code tour extension.
+
+### Initial Setup
+
+#### 1. Clone the Repository
+Start by cloning this repository to your local machine.
+
+#### 2. Install Pre-requisites
+Ensure the following pre-requisites are installed and properly configured:
+
+- **Docker**: Required for running a local Algorand network. [Install Docker](https://www.docker.com/).
+- **AlgoKit CLI**: Essential for project setup and operations. Install the latest version from [AlgoKit CLI Installation Guide](https://github.com/algorandfoundation/algokit-cli#install). Verify installation with `algokit --version`, expecting `2.0.0` or later.
+
+#### 3. Bootstrap Your Local Environment
+Run the following commands within the project folder:
+
+- **Install Poetry**: Required for Python dependency management. [Installation Guide](https://python-poetry.org/docs/#installation). Verify with `poetry -V` to see version `1.2`+.
+- **Setup Project**: Execute `algokit project bootstrap all` to install dependencies and setup a Python virtual environment in `.venv`.
+- **Configure environment**: Execute `algokit generate env-file -a target_network localnet` to create a `.env.localnet` file with default configuration for `localnet`.
+- **Start LocalNet**: Use `algokit localnet start` to initiate a local Algorand network.
+
+### Development Workflow
+
+#### Terminal
+Directly manage and interact with your project using AlgoKit commands:
+
+1. **Build Contracts**: `algokit project run build` compiles all smart contracts. You can also specify a specific contract by passing the name of the contract folder as an extra argument.
+For example: `algokit project run build -- hello_world` will only build the `hello_world` contract.
+2. **Deploy**: Use `algokit project deploy localnet` to deploy contracts to the local network. You can also specify a specific contract by passing the name of the contract folder as an extra argument.
+For example: `algokit project deploy localnet -- hello_world` will only deploy the `hello_world` contract.
+
+#### VS Code 
+For a seamless experience with breakpoint debugging and other features:
+
+1. **Open Project**: In VS Code, open the repository root.
+2. **Install Extensions**: Follow prompts to install recommended extensions.
+3. **Debugging**:
+   - Use `F5` to start debugging.
+   - **Windows Users**: Select the Python interpreter at `./.venv/Scripts/python.exe` via `Ctrl/Cmd + Shift + P` > `Python: Select Interpreter` before the first run.
+
+#### JetBrains IDEs
+While primarily optimized for VS Code, JetBrains IDEs are supported:
+
+1. **Open Project**: In your JetBrains IDE, open the repository root.
+2. **Automatic Setup**: The IDE should configure the Python interpreter and virtual environment.
+3. **Debugging**: Use `Shift+F10` or `Ctrl+R` to start debugging. Note: Windows users may encounter issues with pre-launch tasks due to a known bug. See [JetBrains forums](https://youtrack.jetbrains.com/issue/IDEA-277486/Shell-script-configuration-cannot-run-as-before-launch-task) for workarounds.
+
+## AlgoKit Workspaces and Project Management
+This project supports both standalone and monorepo setups through AlgoKit workspaces. Leverage [`algokit project run`](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/features/project/run.md) commands for efficient monorepo project orchestration and management across multiple projects within a workspace.
+
+## AlgoKit Generators
+
+This template provides a set of [algokit generators](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/features/generate.md) that allow you to further modify the project instantiated from the template to fit your needs, as well as giving you a base to build your own extensions to invoke via the `algokit generate` command.
+
+### Generate Smart Contract 
+
+By default the template creates a single `HelloWorld` contract under xalgo_apr_oracle folder in the `smart_contracts` directory. To add a new contract:
+
+1. From the root of the project (`../`) execute `algokit generate smart-contract`. This will create a new starter smart contract and deployment configuration file under `{your_contract_name}` subfolder in the `smart_contracts` directory.
+2. Each contract potentially has different creation parameters and deployment steps. Hence, you need to define your deployment logic in `deploy_config.py`file.
+3. `config.py` file will automatically build all contracts in the `smart_contracts` directory. If you want to build specific contracts manually, modify the default code provided by the template in `config.py` file.
+
+> Please note, above is just a suggested convention tailored for the base configuration and structure of this template. The default code supplied by the template in `config.py` and `index.ts` (if using ts clients) files are tailored for the suggested convention. You are free to modify the structure and naming conventions as you see fit.
+
+### Generate '.env' files
+
+By default the template instance does not contain any env files. Using [`algokit project deploy`](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/features/project/deploy.md) against `localnet` | `testnet` | `mainnet` will use default values for `algod` and `indexer` unless overwritten via `.env` or `.env.{target_network}`. 
+
+To generate a new `.env` or `.env.{target_network}` file, run `algokit generate env-file`
+
+# Tools
+
+This project makes use of Algorand Python to build Algorand smart contracts. The following tools are in use:
+
+- [Algorand](https://www.algorand.com/) - Layer 1 Blockchain; [Developer portal](https://developer.algorand.org/), [Why Algorand?](https://developer.algorand.org/docs/get-started/basics/why_algorand/)
+- [AlgoKit](https://github.com/algorandfoundation/algokit-cli) - One-stop shop tool for developers building on the Algorand network; [docs](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/algokit.md), [intro tutorial](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/tutorials/intro.md)
+- [Algorand Python](https://github.com/algorandfoundation/puya) - A semantically and syntactically compatible, typed Python language that works with standard Python tooling and allows you to express smart contracts (apps) and smart signatures (logic signatures) for deployment on the Algorand Virtual Machine (AVM); [docs](https://github.com/algorandfoundation/puya), [examples](https://github.com/algorandfoundation/puya/tree/main/examples)
+- [AlgoKit Utils](https://github.com/algorandfoundation/algokit-utils-py) - A set of core Algorand utilities that make it easier to build solutions on Algorand.
+- [Poetry](https://python-poetry.org/): Python packaging and dependency management.
+It has also been configured to have a productive dev experience out of the box in [VS Code](https://code.visualstudio.com/), see the [.vscode](./.vscode) folder.
 
